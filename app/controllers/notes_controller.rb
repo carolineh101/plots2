@@ -103,6 +103,7 @@ class NotesController < ApplicationController
 
     if @node.has_power_tag('question')
       redirect_to @node.path(:question)
+      return
     end
 
     return if check_and_redirect_node(@node)
@@ -119,7 +120,12 @@ class NotesController < ApplicationController
 
   def image
     params[:size] = params[:size] || :large
-    redirect_to DrupalNode.find(params[:id]).main_image.path(params[:size])
+    node = DrupalNode.find(params[:id])
+    if node.main_image
+      redirect_to node.main_image.path(params[:size])
+    else
+      redirect_to "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+    end
   end
 
   def create
@@ -145,9 +151,17 @@ class NotesController < ApplicationController
         if current_user.first_time_poster
           AdminMailer.notify_node_moderators(@node)
           flash[:first_time_post] = true
-          flash[:notice] = I18n.t('notes_controller.thank_you_for_contribution').html_safe
+          if @node.has_power_tag('question')
+            flash[:notice] = I18n.t('notes_controller.thank_you_for_question').html_safe
+          else
+            flash[:notice] = I18n.t('notes_controller.thank_you_for_contribution').html_safe
+          end
         else
-          flash[:notice] = I18n.t('notes_controller.research_note_published').html_safe
+          if @node.has_power_tag('question')
+            flash[:notice] = I18n.t('notes_controller.question_note_published').html_safe
+          else
+            flash[:notice] = I18n.t('notes_controller.research_note_published').html_safe
+          end
         end
         # Notice: Temporary redirect.Remove this condition after questions show page is complete.
         #         Just keep @node.path(:question)
@@ -185,7 +199,11 @@ class NotesController < ApplicationController
         render :template => "editor/post"
       end
     else
-      prompt_login I18n.t('notes_controller.author_can_edit_note')
+      if @node.has_power_tag('question')
+        prompt_login I18n.t('notes_controller.author_can_edit_question')
+      else
+        prompt_login I18n.t('notes_controller.author_can_edit_note')
+      end
     end
   end
 
@@ -226,8 +244,6 @@ class NotesController < ApplicationController
         end
         @node.save!
         flash[:notice] = I18n.t('notes_controller.edits_saved')
-        # Notice: Temporary redirect.Remove this condition after questions show page is complete.
-        #         Just keep @node.path(:question)
         format = false
         format = :question if params[:redirect] && params[:redirect] == 'question'
         if request.xhr?
@@ -237,7 +253,11 @@ class NotesController < ApplicationController
         end
       else
         flash[:error] = I18n.t('notes_controller.edit_not_saved')
-        render :action => :edit
+         if params[:rich]
+           render 'editor/rich'
+         else
+           render 'editor/post'
+        end
       end
     end
   end
@@ -289,7 +309,7 @@ class NotesController < ApplicationController
     @wikis = DrupalNode.limit(10)
                        .where(type: 'page', status: 1)
                        .order("nid DESC")
-    
+
     @notes = DrupalNode.research_notes
                        .where(status: 1)
                        .limit(20)

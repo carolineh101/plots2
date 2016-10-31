@@ -21,7 +21,12 @@ require 'test_helper'
 class NotesControllerTest < ActionController::TestCase
 
   def setup
+    Timecop.freeze # account for timestamp change
     activate_authlogic
+  end
+
+  def teardown
+    Timecop.return
   end
 
   test "redirect note short url" do
@@ -54,8 +59,8 @@ class NotesControllerTest < ActionController::TestCase
 
   test "don't show note by spam author" do
     note = node(:spam) # spam fixture
-    
-    get :show, 
+
+    get :show,
         author: note.author.name,
         date: Time.at(note.created).strftime("%m-%d-%Y"),
         id: note.title.parameterize
@@ -76,6 +81,15 @@ class NotesControllerTest < ActionController::TestCase
     get :raw, id: id
 
     assert_response :success
+  end
+
+  test "should show main image for node, returning blank image if it has none" do
+    node = node(:one)
+
+    get :image, id: node.id
+
+    assert_response :redirect
+    assert_redirected_to "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
   end
 
   test "should get tools" do
@@ -282,6 +296,41 @@ class NotesControllerTest < ActionController::TestCase
          redirect: "question"
 
     assert_redirected_to "/questions/" + rusers(:bob).username + "/" + Time.now.strftime("%m-%d-%Y") + "/" + title.parameterize
+    assert_equal "Success! Thank you for contributing with a question, and thanks for your patience while your question is approved by <a href='/wiki/moderation'>community moderators</a> and we'll email you when it is published.", flash[:notice]
+  end
+
+  test "non-first-timer posts a question" do
+    UserSession.create(rusers(:jeff))
+    title = "My first question to Public Lab"
+    post :create,
+         title: title,
+         body: "Spectrometer question",
+         tags: "question:spectrometer",
+         redirect: "question"
+
+    assert_redirected_to "/questions/" + rusers(:jeff).username + "/" + Time.now.strftime("%m-%d-%Y") + "/" + title.parameterize
+    assert_equal flash[:notice], "Question published. In the meantime, if you have more to contribute, feel free to do so."
+  end
+
+  test "should display /post template when editing a note" do
+    user = UserSession.create(rusers(:jeff))
+    note = node(:blog)
+    post :edit,
+         id: note.nid
+
+    assert_response :success
+    assert_select "input#taginput[value=?]", note.tagnames.join(',')
+  end
+
+  test "should display /post template when editing a question" do
+    user = UserSession.create(rusers(:jeff))
+    note = node(:question)
+    note.add_tag('nice', rusers(:jeff))
+    post :edit,
+         id: note.nid
+
+    assert_response :success
+    assert_select "input#taginput[value=?]", note.tagnames.join(',') + ',spectrometer' # for now, question subject is appended to end of form
   end
 
   test "should redirect to questions show page when editing an existing question" do
@@ -295,6 +344,17 @@ class NotesControllerTest < ActionController::TestCase
          redirect: "question"
 
     assert_redirected_to note.path(:question) + "?_=" + Time.now.to_i.to_s
+  end
+
+  test "should update a former note that has become a question by tagging" do
+    node = node(:blog)
+    node.add_tag('question:foo', rusers(:bob))
+
+    post :update,
+         id: node.nid,
+         title: node.title + ' amended'
+
+    assert_response :redirect
   end
 
   test "should assign correct value to graph_comments on GET stats" do
@@ -358,25 +418,26 @@ class NotesControllerTest < ActionController::TestCase
     assert (notes & expected).present?
     assert !(notes & questions).present?
   end
-  
+
   test "should choose I18n for notes controller" do
     available_testing_locales.each do |lang|
-        old_controller = @controller
-        @controller = SettingsController.new
-        
-        get :change_locale, :locale => lang.to_s
-        
-        @controller = old_controller
-        
-        UserSession.create(rusers(:jeff))
-        title = "Some post to Public Lab"
-    
-        post :create,
-             title: title+lang.to_s,
-             body: "Some text.",
-             tags: "event"
-    
-        assert_equal I18n.t('notes_controller.research_note_published'), flash[:notice]
+      old_controller = @controller
+      @controller = SettingsController.new
+
+      get :change_locale, :locale => lang.to_s
+
+      @controller = old_controller
+
+      UserSession.create(rusers(:jeff))
+      title = "Some post to Public Lab"
+
+      post :create,
+           title: title+lang.to_s,
+           body: "Some text.",
+           tags: "event"
+
+      assert_equal I18n.t('notes_controller.research_note_published'), flash[:notice]
     end
   end
+
 end

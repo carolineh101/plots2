@@ -178,13 +178,26 @@ class DrupalNodeTest < ActiveSupport::TestCase
 
   test "should find all research notes" do
     notes = DrupalNode.research_notes
-    expected = [node(:one), node(:spam), node(:first_timer_note), node(:blog)]
+    expected = [node(:one), node(:spam), node(:first_timer_note), node(:blog), node(:moderated_user_note), node(:activity), node(:upgrade)]
     assert_equal expected, notes
   end
 
   test "should find all questions" do
     questions = DrupalNode.questions
-    expected = [node(:question), node(:question2), node(:first_timer_question)]
+    expected = [node(:question), node(:question2), node(:first_timer_question), node(:question3)]
     assert_equal expected, questions
   end
+
+  test "should find all activity notes" do
+    activities = DrupalNode.activities("coding")
+    expected = [node(:moderated_user_note), node(:activity)]
+    assert_equal expected, activities
+  end
+
+  test "should find all upgrade notes" do
+    activities = DrupalNode.upgrades("latest")
+    expected = [node(:moderated_user_note), node(:upgrade)]
+    assert_equal expected, activities
+  end
+
 end

@@ -3,7 +3,7 @@ class ApplicationController < ActionController::Base
   layout 'application'
 
   helper_method :current_user_session, :current_user, :prompt_login, :sidebar
-  
+
   before_filter :set_locale
 
   private
@@ -17,7 +17,7 @@ class ApplicationController < ActionController::Base
         else
           @notes = @notes || DrupalTag.find_research_notes(data, args[:note_count])
         end
-        
+
         @notes = @notes.where('node.nid != (?)', @node.nid) if @node
         @wikis = DrupalTag.find_pages(data,10)
         @videos = DrupalTag.find_nodes_by_type_with_all_tags(['video']+data,'note',8) if args[:videos] && data.length > 1
@@ -58,9 +58,9 @@ class ApplicationController < ActionController::Base
                            .order('node_revisions.timestamp DESC')
       end
     end
-    
+
     # non-Authlogic... homebrew
-    def prompt_login(message = "You must be logged in to do that.")
+    def prompt_login(message = I18n.t('application_controller.must_be_logged_in'))
       flash[:warning] = message
       redirect_to "/login"
     end
@@ -74,10 +74,16 @@ class ApplicationController < ActionController::Base
       if not defined?(@current_user)
         @current_user = current_user_session && current_user_session.record
       end
-      if @current_user && @current_user.drupal_user.status == 0
+      # if banned or moderated:
+      if @current_user.try(:drupal_user).try(:status) == 0
+        # Same effect as if the user clicked logout:
+        current_user_session.destroy
+        # Ensures no code will use old @current_user info. Treat the user
+        # as anonymous (until the login process sets @current_user again):
+        @current_user = nil
+      elsif @current_user.try(:drupal_user).try(:status) == 5
         # Tell the user they are banned. Fails b/c redirect to require below.
-        #flash[:notice] = "The user '"+@current_user.username+"' has been banned; please contact <a href='mailto:web@publiclab.org'>web@publiclab.org</a> if you believe this is in error."
-        # If user is banned, kiss their session goodbye.
+        flash[:warning] = "The user '#{@current_user.username}' has been placed in moderation; please see <a href='https://#{request.host}/wiki/moderators'>our moderation policy</a> and contact <a href='mailto:moderators@#{request.host}'>moderators@#{request.host}</a> if you believe this is in error."
         # Same effect as if the user clicked logout:
         current_user_session.destroy
         # Ensures no code will use old @current_user info. Treat the user
@@ -90,7 +96,7 @@ class ApplicationController < ActionController::Base
     def require_user
       unless current_user
         store_location
-        flash[:notice] = "You must be logged in to access this page"
+        flash[:warning] ||= I18n.t('application_controller.must_be_logged_in_to_access')
         redirect_to login_url
         return false
       end
@@ -99,7 +105,7 @@ class ApplicationController < ActionController::Base
     def require_no_user
       if current_user
         store_location
-        flash[:notice] = "You must be logged out to access this page"
+        flash[:notice] = I18n.t('application_controller.must_be_logged_out_to_access')
         redirect_to home_url+'?return_to=' + URI.encode(request.env['PATH_INFO'])
         return false
       end
@@ -123,22 +129,24 @@ class ApplicationController < ActionController::Base
       false
     end
 
-  def alert_and_redirect_moderated
-    if @node.author.status == 0 && !(current_user && (current_user.role == "admin" || current_user.role == "moderator"))
-      flash[:error] = "The author of that note has been banned."
-      redirect_to "/"
-    elsif @node.status == 4 && (current_user && (current_user.role == "admin" || current_user.role == "moderator"))
-      flash[:warning] = "First-time poster <a href='#{@node.author.name}'>#{@node.author.name}</a> submitted this #{time_ago_in_words(@node.created_at)} ago and it has not yet been approved by a moderator. <a class='btn btn-default btn-sm' href='/moderate/publish/#{@node.id}'>Approve</a> <a class='btn btn-default btn-sm' href='/moderate/spam/#{@node.id}'>Spam</a>"
-    elsif @node.status == 4 && (current_user && current_user.id == @node.author.id) && !flash[:first_time_post]
-      flash[:warning] = "Thank you for contributing open research, and thanks for your patience while your post is approved by <a href='/wiki/moderation'>community moderators</a> and we'll email you when it is published. In the meantime, if you have more to contribute, feel free to do so."
-    elsif @node.status != 1 && !(current_user && (current_user.role == "admin" || current_user.role == "moderator"))
-      # if it's spam or a draft
-      # no notification; don't let people easily fish for existing draft titles; we should try to 404 it
-      redirect_to "/"
+    def alert_and_redirect_moderated
+      if @node.author.status == 0 && !(current_user && (current_user.role == "admin" || current_user.role == "moderator"))
+        flash[:error] = I18n.t('application_controller.author_has_been_banned')
+        redirect_to "/"
+      elsif @node.status == 4 && (current_user && (current_user.role == "admin" || current_user.role == "moderator"))
+        flash[:warning] = "First-time poster <a href='#{@node.author.name}'>#{@node.author.name}</a> submitted this #{time_ago_in_words(@node.created_at)} ago and it has not yet been approved by a moderator. <a class='btn btn-default btn-sm' href='/moderate/publish/#{@node.id}'>Approve</a> <a class='btn btn-default btn-sm' href='/moderate/spam/#{@node.id}'>Spam</a>"
+      elsif @node.status == 4 && (current_user && current_user.id == @node.author.id) && !flash[:first_time_post]
+        flash[:warning] = "Thank you for contributing open research, and thanks for your patience while your post is approved by <a href='/wiki/moderation'>community moderators</a> and we'll email you when it is published. In the meantime, if you have more to contribute, feel free to do so."
+      elsif @node.status != 1 && !(current_user && (current_user.role == "admin" || current_user.role == "moderator"))
+        # if it's spam or a draft
+        # no notification; don't let people easily fish for existing draft titles; we should try to 404 it
+        redirect_to "/"
+      elsif @node.author.status == 5
+        flash.now[:warning] = "The user '#{@node.author.username}' has been placed <a href='https://#{request.host}/wiki/moderators'>in moderation</a> and will not be able to respond to comments."
+      end
     end
-  end
-  
-  # Check the locale set and adjust the locale accordingly
+
+    # Check the locale set and adjust the locale accordingly
     def set_locale
       if cookies[:plots2_locale] && I18n.available_locales.include?(cookies[:plots2_locale].to_sym)
         lang = cookies[:plots2_locale].to_sym
@@ -183,10 +191,10 @@ class ApplicationController < ActionController::Base
         @session_tags = session[:tags]
         qids = @questions.collect(&:nid)
         @questions = DrupalNode.where(status: 1, type: 'note')
-                      .joins(:drupal_tag)
-                      .where('term_data.name IN (?)', @session_tags.values)
-                      .where('node.nid IN (?)', qids)
-                      .group('node.nid')
+                               .joins(:drupal_tag)
+                               .where('term_data.name IN (?)', @session_tags.values)
+                               .where('node.nid IN (?)', qids)
+                               .group('node.nid')
       end
     end
 

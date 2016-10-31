@@ -46,6 +46,14 @@ unmoderated_spam_revision:
   title: Bad spam title
   body: Lots of stuff for sale
 
+moderated_spam_revision:
+  timestamp: <%= Time.now.to_i - 1 %>
+  nid: 4
+  uid: 3
+  status: 0
+  title: Title moderated spam
+  body: body moderated spam
+
 first_timer_note:
   timestamp: <%= Time.now.to_i %>
   nid: 6
@@ -166,8 +174,26 @@ map:
   title: A map page
   body: This is a map
 
-one:
+blog:
   nid: 13
   uid: 2
   title: Blog post
   body: Introducing the Public Lab Blog!
+
+question3:
+  nid: 15
+  uid: 9
+  title: "Question by a moderated user"
+  body: I have a question but I'm moderated.
+
+moderated_user_note:
+  nid: 16
+  uid: 9
+  title: "Note by a moderated user"
+  body: I have a note to share but I'm moderated.
+
+upgrade:
+  nid: 18
+  uid: 10
+  title: "Note by a test user"
+  body: This is upgrade node.

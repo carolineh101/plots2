@@ -1,6 +1,11 @@
 class DrupalUsers < ActiveRecord::Base
   attr_accessible :title, :body, :name, :pass, :mail, :mode, :sort, :threshold, :theme, :signature, :signature_format, :created, :access, :login, :status, :timezone, :language, :picture, :init, :data, :timezone_id, :timezone_name
 
+  ## User status can be:
+  #  0: banned
+  #  1: normal
+  #  5: moderated
+
   self.table_name = 'users'
   self.primary_key = 'uid'
 
@@ -12,6 +17,12 @@ class DrupalUsers < ActiveRecord::Base
   has_many :answer_selections, :foreign_key => :user_id
   has_many :drupal_comments, :foreign_key => 'uid'
   has_one :location_tag, :foreign_key => 'uid', :dependent => :destroy
+
+  searchable :if => proc { |user| user.status == 1 } do
+    string :name
+    string :mail
+    string :status
+  end
 
   def user
     User.find_by_username self.name
@@ -37,7 +48,14 @@ class DrupalUsers < ActiveRecord::Base
     self.user.role if self.user
   end
 
-  def unban
+  def moderate
+    self.status = 5
+    self.save
+    # user is logged out next time they access current_user in a controller; see application controller
+    self
+  end
+
+  def unmoderate
     self.status = 1
     self.save
     self
@@ -45,6 +63,15 @@ class DrupalUsers < ActiveRecord::Base
 
   def ban
     self.status = 0
+    decrease_likes_banned
+    self.save
+    # user is logged out next time they access current_user in a controller; see application controller
+    self
+  end
+
+  def unban
+    self.status = 1
+    increase_likes_unbanned
     self.save
     self
   end
@@ -66,7 +93,9 @@ class DrupalUsers < ActiveRecord::Base
   end
 
   def liked_notes
-    DrupalNode.includes(:node_selections).where("type = 'note' AND node_selections.liking = ? AND node_selections.user_id = ? AND node.status = 1", true, self.uid).order('node_selections.nid DESC')
+    DrupalNode.includes(:node_selections)
+              .where("type = 'note' AND node_selections.liking = ? AND node_selections.user_id = ? AND node.status = 1", true, self.uid)
+              .order('node_selections.nid DESC')
   end
 
   def liked_pages
@@ -75,7 +104,10 @@ class DrupalUsers < ActiveRecord::Base
 
   # last node
   def last
-    DrupalNode.limit(1).where(uid:self.uid).order('changed DESC').first
+    DrupalNode.limit(1)
+              .where(uid: self.uid)
+              .order('changed DESC')
+              .first
   end
 
   def profile_values
@@ -168,4 +200,19 @@ class DrupalUsers < ActiveRecord::Base
     end
   end
 
+  private
+
+  def decrease_likes_banned
+    node_selections.each do |node|
+      node.drupal_node.cached_likes = node.drupal_node.cached_likes - 1
+      node.drupal_node.save!
+    end
+  end
+
+  def increase_likes_unbanned
+    node_selections.each do |node|
+      node.drupal_node.cached_likes = node.drupal_node.cached_likes + 1
+      node.drupal_node.save!
+    end
+  end
 end

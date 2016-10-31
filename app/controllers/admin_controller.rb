@@ -63,7 +63,7 @@ class AdminController < ApplicationController
                          .order("nid DESC")
       if params[:type] == "wiki"
         @nodes = @nodes.where(type: "page", status: 1)
-      else 
+      else
         @nodes = @nodes.where(status: 0)
       end
     else
@@ -120,7 +120,11 @@ class AdminController < ApplicationController
           AdminMailer.notify_author_of_approval(@node, current_user)
           AdminMailer.notify_moderators_of_approval(@node, current_user)
           SubscriptionMailer.notify_node_creation(@node)
-          flash[:notice] = "Post approved and published after #{time_ago_in_words(@node.created_at)} in moderation. Now reach out to the new community member; thank them, just say hello, or help them revise/format their post in the comments."
+          if @node.has_power_tag('question')
+            flash[:notice] = "Question approved and published after #{time_ago_in_words(@node.created_at)} in moderation. Now reach out to the new community member; thank them, just say hello, or help them revise/format their post in the comments."
+          else
+            flash[:notice] = "Post approved and published after #{time_ago_in_words(@node.created_at)} in moderation. Now reach out to the new community member; thank them, just say hello, or help them revise/format their post in the comments."
+          end
         else
           flash[:notice] = "Item published."
         end
@@ -143,7 +147,7 @@ class AdminController < ApplicationController
         @revision.spam
         @revision.author.ban
         flash[:notice] = "Item marked as spam and author banned. You can undo this on the <a href='/spam/revisions'>spam moderation page</a>."
-        redirect_to "/dashboard"
+        redirect_to "/wiki/revisions/<%= @node.slug %>" + '?_=' + Time.now.to_i.to_s
       else
         flash[:notice] = "Item already marked as spam and author banned. You can undo this on the <a href='/spam/revisions'>spam moderation page</a>."
         redirect_to "/dashboard"
@@ -175,11 +179,32 @@ class AdminController < ApplicationController
     end
   end
 
-  def ban
+  def moderate
+    user = DrupalUsers.find params[:id]
     if current_user && (current_user.role == "moderator" || current_user.role == "admin")
-      user = DrupalUsers.find params[:id]
-      user.status = 0
-      user.save({})
+      user.moderate
+      flash[:notice] = "The user has been moderated."
+    else
+      flash[:error] = "Only moderators can moderate other users."
+    end
+    redirect_to "/profile/" + user.name + "?_=" + Time.now.to_i.to_s
+  end
+
+  def unmoderate
+    user = DrupalUsers.find params[:id]
+    if current_user && (current_user.role == "moderator" || current_user.role == "admin")
+      user.unmoderate
+      flash[:notice] = "The user has been unmoderated."
+    else
+      flash[:error] = "Only moderators can unmoderate other users."
+    end
+    redirect_to "/profile/" + user.name + "?_=" + Time.now.to_i.to_s
+  end
+
+  def ban
+    user = DrupalUsers.find params[:id]
+    if current_user && (current_user.role == "moderator" || current_user.role == "admin")
+      user.ban
       flash[:notice] = "The user has been banned."
     else
       flash[:error] = "Only moderators can ban other users."
@@ -188,10 +213,9 @@ class AdminController < ApplicationController
   end
 
   def unban
+    user = DrupalUsers.find params[:id]
     if current_user && (current_user.role == "moderator" || current_user.role == "admin")
-      user = DrupalUsers.find params[:id]
-      user.status = 1
-      user.save({})
+      user.unban
       flash[:notice] = "The user has been unbanned."
     else
       flash[:error] = "Only moderators can unban other users."
@@ -217,8 +241,7 @@ class AdminController < ApplicationController
         node.spam
         nodes += 1
         user = node.author
-        user.status = 0
-        user.save({})
+        user.ban
         users << user.id
       end
       flash[:notice] = nodes.to_s+" nodes spammed and "+users.length.to_s+" users banned."
@@ -234,7 +257,7 @@ class AdminController < ApplicationController
       du = DrupalUsers.find params[:id]
       if du.user
         flash[:error] = "The user has already been migrated."
-      else 
+      else
         if du.migrate
           flash[:notice] = "The user was migrated! Enthusiasm!"
         else

@@ -33,3 +33,29 @@ map_lon:
 blog:
   tid: 9
   name: blog
+
+activity:
+  tid: 10
+  name: activity:coding
+
+upgrade:
+  tid: 11
+  name: upgrade:latest
+
+spectrometer:
+  tid: 12
+  name: spectrometer
+  parent: spectrometry
+
+spectrometry:
+  tid: 13
+  name: spectrometry
+
+activity-spectrometer:
+  tid: 14
+  name: activity:spectrometer
+
+replications:
+  tid: 15
+  name: seeks:replications
+  parent: activity:*

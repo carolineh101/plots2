@@ -18,10 +18,12 @@ class AdminControllerTest < ActionController::TestCase
 
   def setup
     activate_authlogic
+    Timecop.freeze # account for timestamp change
   end
 
   def teardown
     UserSession.find.destroy if UserSession.find
+    Timecop.return
   end
 
   test "admin should promote user role to admin" do
@@ -83,7 +85,7 @@ class AdminControllerTest < ActionController::TestCase
   test "non-registered user should not be able to see spam page" do
     get :spam
 
-    assert_equal "You must be logged in to access this page", flash[:notice]
+    assert_equal "You must be logged in to access this page", flash[:warning]
     assert_redirected_to "/login"
   end
 
@@ -113,7 +115,7 @@ class AdminControllerTest < ActionController::TestCase
     assert_response :success
     assert_not_nil assigns(:nodes)
   end
- 
+
   test "non-registered user should not be able to mark a node as spam" do
     UserSession.create(rusers(:bob))
     UserSession.find.destroy
@@ -125,7 +127,7 @@ class AdminControllerTest < ActionController::TestCase
     assert_equal 1, node.status
     assert_redirected_to node.path
   end
- 
+
   test "normal user should not be able to mark a node as spam" do
     UserSession.create(rusers(:bob))
 
@@ -152,7 +154,7 @@ class AdminControllerTest < ActionController::TestCase
     email = ActionMailer::Base.deliveries.last
     assert_not_nil email.to
     assert_not_nil email.bcc
-    assert_equal ["moderators@publiclab.org"], ActionMailer::Base.deliveries.last.to
+    assert_equal ["moderators@#{request_host}"], ActionMailer::Base.deliveries.last.to
     # title same as initial for email client threading
     assert_equal "[New Public Lab poster needs moderation] " + node.title, email.subject
   end
@@ -172,7 +174,7 @@ class AdminControllerTest < ActionController::TestCase
     email = ActionMailer::Base.deliveries.last
     assert_not_nil email.to
     assert_not_nil email.bcc
-    assert_equal ["moderators@publiclab.org"], ActionMailer::Base.deliveries.last.to
+    assert_equal ["moderators@#{request_host}"], ActionMailer::Base.deliveries.last.to
     # title same as initial for email client threading
     assert_equal "[New Public Lab poster needs moderation] " + node.title, email.subject
   end
@@ -202,7 +204,7 @@ class AdminControllerTest < ActionController::TestCase
     UserSession.create(rusers(:moderator))
     node = node(:first_timer_note)
     assert_equal 4, node.status
-    ActionMailer::Base.deliveries.clear                                                                                                          
+    ActionMailer::Base.deliveries.clear
 
     get :publish, id: node(:first_timer_note).id
 
@@ -224,7 +226,7 @@ class AdminControllerTest < ActionController::TestCase
     # test the moderator notification
     email = ActionMailer::Base.deliveries[1]
     assert_equal "[New Public Lab poster needs moderation] " + node.title, email.subject
-    assert_equal ["moderators@publiclab.org"], email.to
+    assert_equal ["moderators@#{request_host}"], email.to
 
     # test general subscription notices
     # (we test the final one, but there are many)
@@ -276,7 +278,7 @@ class AdminControllerTest < ActionController::TestCase
 
     get :spam_revisions
 
-    assert_equal "You must be logged in to access this page", flash[:notice]
+    assert_equal "You must be logged in to access this page", flash[:warning]
     assert_redirected_to "/login"
   end
 
@@ -319,7 +321,7 @@ class AdminControllerTest < ActionController::TestCase
     assert_equal 0, revision.status
     assert_equal 0, revision.author.status
     assert_not_equal node(:spam_targeted_page).latest.vid, revision.vid
-    assert_redirected_to "/dashboard"
+    assert_redirected_to "/wiki/revisions/<%= @node.slug %>" + '?_=' + Time.now.to_i.to_s
   end
 
   test "admin user should be able to republish a revision" do
@@ -356,7 +358,7 @@ class AdminControllerTest < ActionController::TestCase
     # test the moderator notification
     email = ActionMailer::Base.deliveries.last
     assert_equal "[New Public Lab poster needs moderation] " + node.title, email.subject
-    assert_equal ["moderators@publiclab.org"], email.to
+    assert_equal ["moderators@#{request_host}"], email.to
     assert_not_nil email.bcc
   end
 
@@ -377,14 +379,15 @@ class AdminControllerTest < ActionController::TestCase
   test "first timer question should redirect to question path when approved by admin" do
     UserSession.create(rusers(:admin))
     node = node(:first_timer_question)
-    assert_equal 4, node.status                                                                                                        
+    assert_equal 4, node.status
 
     get :publish, id: node(:first_timer_question).id
 
-    assert_equal "Post approved and published after #{time_ago_in_words(node.created_at)} in moderation. Now reach out to the new community member; thank them, just say hello, or help them revise/format their post in the comments.", flash[:notice]
+    assert_equal "Question approved and published after #{time_ago_in_words(node.created_at)} in moderation. Now reach out to the new community member; thank them, just say hello, or help them revise/format their post in the comments.", flash[:notice]
     node = assigns(:node)
     assert_equal 1, node.status
     assert_equal 1, node.author.status
     assert_redirected_to node.path(:question)
   end
+
 end

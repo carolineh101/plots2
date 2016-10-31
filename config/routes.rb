@@ -6,7 +6,7 @@ Plots2::Application.routes.draw do
   #Search RESTful endpoints
   #constraints(subdomain: 'api') do
   mount Srch::API => '/api'
-  mount GrapeSwaggerRails::Engine => '/api/docs'
+  mount GrapeSwaggerRails::Engine => '/api/d1ocs'
   #end
   
 
@@ -134,8 +134,6 @@ Plots2::Application.routes.draw do
   match 'questions_search/typeahead/:id' => 'questions_search#typeahead'
 
   #Search Pages
-  match 'search' => 'searches#new'
-  match 'search/advanced' => 'searches#new'
   match 'search/advanced/:id' => 'searches#new'
   match 'search/dynamic' => 'searches#dynamic'
   match 'search/dynamic/:id' => 'searches#dynamic'
@@ -143,7 +141,9 @@ Plots2::Application.routes.draw do
   match 'search/questions/:id' => 'searches#questions'
   match 'search/questions_typeahead/:id' => 'searches#questions_typeahead'
   match 'search/:id' => 'searches#normal_search'
-
+  match 'search/advanced' => 'searches#new'
+  match 'search' => 'searches#new'
+  
   # Question Search capability--temporary until combined with full Search Capabilities
   match 'questions_search/:id' => 'questions_search#index'
   match 'questions_search/typeahead/:id' => 'questions_search#typeahead'
@@ -220,7 +220,9 @@ Plots2::Application.routes.draw do
   match 'admin/demote/basic/:id' => 'admin#demote_basic'
   match 'admin/promote/admin/:id' => 'admin#promote_admin'
   match 'admin/migrate/:id' => 'admin#migrate'
-  
+  match 'admin/moderate/:id' => 'admin#moderate'
+  match 'admin/unmoderate/:id' => 'admin#unmoderate'
+
   # Sample of named route:
   #   match 'products/:id/purchase' => 'catalog#purchase', :as => :purchase
   # This route can be invoked with purchase_url(:id => product.id)

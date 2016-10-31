@@ -1,7 +1,7 @@
 class UniqueUrlValidator < ActiveModel::Validator
   def validate(record)
     if record.title == "" || record.title.nil?
-      #record.errors[:base] << "You must provide a title." 
+      #record.errors[:base] << "You must provide a title."
       # otherwise the below title uniqueness check fails, as title presence validation doesn't run until after
     elsif record.title == "new" && (record.type == "page" || record.type == "place" || record.type == "tool")
       record.errors[:base] << "You may not use the title 'new'." # otherwise the below title uniqueness check fails, as title presence validation doesn't run until after
@@ -19,6 +19,28 @@ class DrupalNode < ActiveRecord::Base
   attr_accessible :title, :uid, :status, :type, :vid, :cached_likes, :comment, :path, :slug
   self.table_name = 'node'
   self.primary_key = 'nid'
+
+  searchable do
+    text :title, boost: 5
+    text :body do
+      body.to_s.gsub!(/[[:cntrl:]]/,'')
+    end
+    time :updated_at
+    string :status
+    string :updated_month
+    text :comments do
+      drupal_comments.map { |comment| comment.comment }
+    end
+
+    string :user_name do
+      drupal_users.name
+    end
+  end
+
+  def updated_month
+    updated_at.strftime('%B %Y')
+  end
+
 
   extend FriendlyId
   friendly_id :friendly_id_string, use: [:slugged, :history]
@@ -83,20 +105,18 @@ class DrupalNode < ActiveRecord::Base
   before_save :set_changed_and_created
   after_create :setup
   before_validation :set_path, on: :create
-  # before_create :remove_slug
-  # before_update :update_path
 
   # can switch to a "question-style" path if specified
   def path(type = :default)
     if type == :question
       self[:path].gsub("/notes/", "/questions/")
-    else 
+    else
       # default path
       self[:path]
     end
   end
 
-  # should only be run at actual creation time -- 
+  # should only be run at actual creation time --
   # or, we should refactor to us node.created instead of Time.now
   def generate_path
     if self.type == 'note'
@@ -154,8 +174,8 @@ class DrupalNode < ActiveRecord::Base
     weeks = {}
     (0..span).each do |week|
       weeks[span-week] = DrupalNode.select(:created)
-                                   .where(type:    type, 
-                                          status:  1, 
+                                   .where(type:    type,
+                                          status:  1,
                                           created: time.to_i - week.weeks.to_i..time.to_i - (week-1).weeks.to_i)
                                    .count
     end
@@ -288,8 +308,8 @@ class DrupalNode < ActiveRecord::Base
   end
 
   def gallery
-    if self.drupal_content_field_image_gallery.length > 0 && self.drupal_content_field_image_gallery.first.field_image_gallery_fid 
-      return self.drupal_content_field_image_gallery 
+    if self.drupal_content_field_image_gallery.length > 0 && self.drupal_content_field_image_gallery.first.field_image_gallery_fid
+      return self.drupal_content_field_image_gallery
     else
       return []
     end
@@ -330,9 +350,9 @@ class DrupalNode < ActiveRecord::Base
   end
 
   # power tags have "key:value" format, and should be searched with a "key:*" wildcard
-  def has_power_tag(tag)
+  def has_power_tag(key)
     tids = DrupalTag.includes(:drupal_node_community_tag)
-                    .where("community_tags.nid = ? AND name LIKE ?", self.id, tag+":%")
+                    .where("community_tags.nid = ? AND name LIKE ?", self.id, key + ":%")
                     .collect(&:tid)
     DrupalNodeCommunityTag.where('nid = ? AND tid IN (?)', self.id, tids).length > 0
   end
@@ -380,10 +400,40 @@ class DrupalNode < ActiveRecord::Base
     DrupalNodeCommunityTag.where('nid = ? AND tid NOT IN (?)', self.id, tids)
   end
 
-  def has_tag(tag)
-    tids = DrupalTag.includes(:drupal_node_community_tag)
-                    .where("community_tags.nid = ? AND name LIKE ?", self.id, tag)
-                    .collect(&:tid)
+  # accests a tagname /or/ tagname ending in wildcard such as "tagnam*"
+  # also searches for other tags whose parent field matches given tagname,
+  # but not tags matching given tag's parent field
+  def has_tag(tagname)
+    tags = self.get_matching_tags_without_aliasing(tagname)
+    # search for tags with parent matching this
+    tags += DrupalTag.includes(:drupal_node_community_tag)
+                     .where("community_tags.nid = ? AND parent LIKE ?", self.id, tagname)
+    # search for parent tag of this, if exists
+    #tag = DrupalTag.where(name: tagname).try(:first)
+    #if tag && tag.parent
+    #  tags += DrupalTag.includes(:drupal_node_community_tag)
+    #                   .where("community_tags.nid = ? AND name LIKE ?", self.id, tag.parent)
+    #end
+    tids = tags.collect(&:tid).uniq
+    DrupalNodeCommunityTag.where('nid IN (?) AND tid IN (?)', self.id, tids).length > 0
+  end
+
+  # can return multiple DrupalTag records -- we don't yet hard-enforce uniqueness, but should soon
+  # then, this would just be replaced by DrupalTag.where(name: tagname).first
+  def get_matching_tags_without_aliasing(tagname)
+    tags = DrupalTag.includes(:drupal_node_community_tag)
+                    .where("community_tags.nid = ? AND name LIKE ?", self.id, tagname)
+    # search for tags which end in wildcards
+    if tagname[-1] == '*'
+      tags += DrupalTag.includes(:drupal_node_community_tag)
+                       .where("community_tags.nid = ? AND (name LIKE ? OR name LIKE ?)", self.id, tagname, tagname.gsub('*', '%'))
+    end
+    tags
+  end
+
+  def has_tag_without_aliasing(tagname)
+    tags = self.get_matching_tags_without_aliasing(tagname)
+    tids = tags.collect(&:tid).uniq
     DrupalNodeCommunityTag.where('nid IN (?) AND tid IN (?)', self.id, tids).length > 0
   end
 
@@ -425,14 +475,14 @@ class DrupalNode < ActiveRecord::Base
 
   # increment view count
   def view
-    DrupalNodeCounter.new({:nid => self.id}).save if self.drupal_node_counter.nil? 
+    DrupalNodeCounter.new({:nid => self.id}).save if self.drupal_node_counter.nil?
     self.drupal_node_counter.totalcount += 1
     self.drupal_node_counter.save
   end
 
   # view count
   def totalcount
-    DrupalNodeCounter.new({:nid => self.id}).save if self.drupal_node_counter.nil? 
+    DrupalNodeCounter.new({:nid => self.id}).save if self.drupal_node_counter.nil?
     self.drupal_node_counter.totalcount
   end
 
@@ -457,7 +507,7 @@ class DrupalNode < ActiveRecord::Base
 
   def lat
     if self.has_power_tag("lat")
-      self.power_tag("lat").to_f 
+      self.power_tag("lat").to_f
     else
       false
     end
@@ -465,14 +515,14 @@ class DrupalNode < ActiveRecord::Base
 
   def lon
     if self.has_power_tag("lon")
-      self.power_tag("lon").to_f 
+      self.power_tag("lon").to_f
     else
       false
     end
   end
 
   # these should eventually displace the above means of finding locations
-  # ...they may already be redundant after tagged_map_coord migration 
+  # ...they may already be redundant after tagged_map_coord migration
   def tagged_lat
     self.power_tags('lat')[0]
   end
@@ -528,7 +578,7 @@ class DrupalNode < ActiveRecord::Base
   end
 
   # handle creating a new note with attached revision and main image
-  # this is kind of egregiously bad... must revise after 
+  # this is kind of egregiously bad... must revise after
   # researching simultaneous creation of associated records
   def self.new_note(params)
     saved = false
@@ -544,7 +594,7 @@ class DrupalNode < ActiveRecord::Base
       saved = true
       revision = false
       ActiveRecord::Base.transaction do
-        node.save! 
+        node.save!
         revision = node.new_revision({
           nid:   node.id,
           uid:   author.uid,
@@ -582,7 +632,7 @@ class DrupalNode < ActiveRecord::Base
       revision = false
       saved = true
       ActiveRecord::Base.transaction do
-        node.save! 
+        node.save!
         revision = node.new_revision({
           :nid => node.id,
           :uid => params[:uid],
@@ -615,7 +665,7 @@ class DrupalNode < ActiveRecord::Base
       revision = false
       saved = true
       ActiveRecord::Base.transaction do
-        node.save! 
+        node.save!
         revision = node.new_revision({
           :nid => node.id,
           :uid => params[:uid],
@@ -650,13 +700,13 @@ class DrupalNode < ActiveRecord::Base
 
   def add_tag(tagname,user)
     tagname = tagname.downcase
-    unless self.has_tag(tagname)
+    unless self.has_tag_without_aliasing(tagname)
       saved = false
       tag = DrupalTag.find_by_name(tagname) || DrupalTag.new({
-        :vid => 3, # vocabulary id; 1
-        :name => tagname,
-        :description => "",
-        :weight => 0
+        vid:         3, # vocabulary id; 1
+        name:        tagname,
+        description: "",
+        weight:      0
       })
       ActiveRecord::Base.transaction do
         if tag.valid?
@@ -713,6 +763,13 @@ class DrupalNode < ActiveRecord::Base
                           .group('node.nid')
   end
 
+<<<<<<< HEAD
+=======
+  def body_preview
+    self.try(:latest).body_preview
+  end
+
+>>>>>>> a54e2a41d916c183b57696d9a62fd44406a3f62b
   def self.activities(tagname)
     DrupalNode.where(status: 1, type: 'note')
               .includes(:drupal_node_revision, :drupal_tag)

@@ -1,5 +1,13 @@
 class DrupalNodeRevision < ActiveRecord::Base
 
+  searchable do
+    text :title, boost: 5
+    text :body do
+      body.to_s.gsub!(/[[:cntrl:]]/,'')
+    end
+    text :teaser
+  end
+
   attr_accessible :title, :body, :nid, :uid, :teaser, :log, :timestamp, :format
   self.table_name = 'node_revisions'
   self.primary_key = 'vid'
@@ -105,13 +113,18 @@ class DrupalNodeRevision < ActiveRecord::Base
     body
   end
 
-  # filtered version additionally appending http/https protocol to protocol-relative URLs like "//publiclab.org/foo"
+  # filtered version additionally appending http/https protocol to protocol-relative URLs like "/foo"
   # render_body plus making all relative links absolute
-  def render_body_email
-    body = self.render_body.gsub(/([\s|"|'|\[|\(])(\/\/)([\w]?\.?publiclab.org)/, '\1https://\3')
-    body = body.gsub("href='/","href='https://publiclab.org/")
-    body = body.gsub('href="/','href="https://publiclab.org/')
+  def render_body_email(host = "publiclab.org")
+    body = self.render_body.gsub(/([\s|"|'|\[|\(])(\/\/)([\w]?\.?#{host})/, '\1https://\3')
+    body = body.gsub("href='/","href='https://#{host}/")
+    body = body.gsub('href="/','href="https://' + host.to_s + '/')
     body
+  end
+
+  def body_preview
+    newBody = self.body.gsub(/^#+.+/, "")
+    newBody.truncate(100)
   end
 
 end

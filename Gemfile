@@ -45,6 +45,9 @@ group :test do
   gem 'rest-client' 
   gem 'rspec'
   gem 'json_expressions'
+  gem 'timecop'
+  gem 'jasmine-rails'
+  gem 'jasmine-jquery-rails'
 end
 
 # run with `bundle install --without production` to exclude these
@@ -79,8 +82,7 @@ gem 'grape-swagger-ui'
 gem 'rack-cors', :require => 'rack/cors'
 
 gem 'mocha', '~> 1.1'
-gem 'jasmine-rails'
-gem 'jasmine-jquery-rails'
+
 gem 'sunspot_rails'
 gem 'sunspot_solr'
 
@@ -92,5 +94,3 @@ gem 'http_accept_language'
 gem 'friendly_id'
 gem 'jbuilder'
 gem 'strong_parameters'
-
-

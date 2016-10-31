@@ -10,9 +10,12 @@ class User < ActiveRecord::Base
   self.table_name = 'rusers'
   attr_accessible :username, :email, :password, :password_confirmation, :openid_identifier, :key, :photo, :photo_file_name, :location_privacy
 
+  searchable do
+    text :username, :email
+  end
+
   acts_as_authentic do |c|
-    c.openid_required_fields = [:nickname, 
-                                :email] 
+    c.openid_required_fields = [:nickname, :email]
   end
 
   has_attached_file :photo, :styles => { :thumb => "200x200#", :medium => "500x500#", :large => "800x800#" },
@@ -211,11 +214,7 @@ class User < ActiveRecord::Base
   end
 
   def photo_path(size = :medium)
-    if Rails.env == "production"
-      '//i.publiclab.org'+self.photo.url(size)
-    else
-      self.photo.url(size).gsub('//i.publiclab.org','')
-    end
+    self.photo.url(size)
   end
 
   def first_time_poster

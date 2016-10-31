@@ -14,14 +14,14 @@
   <% if params[:template] == "question" %>
     <h4 class="visible-sm">Ask a question</h4>
     <div id="research-note-detail" class="hidden-sm">
-      <h4><i class="fa fa-question-circle"></i> Use this form to ask Question about <b><%= params[:tags].split(':').last %></b></h4>
-      <% if DrupalTag.follower_count(params[:tags]) > 0 %>
-        <div class="alert alert-success" role="alert"><%= DrupalTag.follower_count(params[:tags]) %> people have signed up to answer questions on this topic.</div>
+      <h4><i class="fa fa-question-circle"></i> Use this form to ask Question about <b><%= @node.power_tag('question') if @node %></b></h4>
+      <% if @node && DrupalTag.follower_count(@node.power_tag('question')) > 0 %>
+        <div class="alert alert-success" role="alert"><%= DrupalTag.follower_count(@node.power_tag('question')) %> people have signed up to answer questions on this topic.</div>
       <% end %>
       <p>Here you can ask a question to the Public Lab community to help you in your environmental exploration. This is a great space to ask whether a method exists for identifying a possible pollutant, or ask about details of a specific technique for identifying a pollutant.</p>
       <p>You can add more tags in the tags section below to further relate your question. You can also change the main tag of the question by renaming the part after <b><i>question:</i></b> tag</p>
       <p>New to Public Lab? Take a minute to read the Q &amp; A wiki before posting your question</p>
-      <h4><a href="//publiclab.org/wiki/public-lab-q-and-a">Learn more &raquo;</a></h4>
+      <h4><a href="//<%= request.host %>/wiki/public-lab-q-and-a">Learn more &raquo;</a></h4>
     </div>
 
   <% else %>
@@ -80,13 +80,8 @@
         <h3>Share your work</h3>
       <% end %>
 
-      <!-- Notice: Temporary redirect. remove this after after questions show page is complete -->
-      <% if params[:redirect] == 'question' %>
-        <%= hidden_field_tag 'redirect', 'question' %>
-      <% end %>
-
       <div class="form-group">
-        <input id="title" tabindex="1" name="title" class="form-control" placeholder="Title" value="<%= if @node then @node.title else params[:title] end %><%= "Question: " if params[:template] == "question" && params[:title].nil? %>"/>
+        <input id="title" tabindex="1" name="title" class="form-control" placeholder="<% if params[:template] == "question" %>Ask a question as specifically as possible<% else %>Title your post descriptively<% end %>" value="<%= if @node then @node.title else params[:title] end %>"/>
       </div>
 
       <input id="has_main_image" type="hidden" name="has_main_image" value="<% if @node && @node.main_image %>true<% end %>" />
@@ -95,9 +90,9 @@
 
       <%= render :partial => 'editor/editor' %>
 
-      <div class="input-group">
+      <div class="input-group tags-input">
         <span class="input-group-addon"><i class="fa fa-tags"></i></span>
-        <input autocomplete="off" class="form-control" id="taginput" tabindex="3" name="tags" type="text" <% if params[:tags] || (@node && @node.tagnames) %>value="<%= params[:tags] || @node.tagnames.join(',') %>"<% else %>placeholder="balloon-mapping,gulf-coast"<% end %> data-provide="typeahead" />
+        <input autocomplete="off" class="form-control" id="taginput" tabindex="3" name="tags" type="text" <% if params[:tags] || (@node && @node.power_tag('question')) || (@node && @node.tagnames) %>value="<%= params[:tags] || @node.tagnames.join(',') %><%= ','+@node.power_tag('question') if @node && @node.power_tag('question') != '' %>"<% else %>placeholder="balloon-mapping,gulf-coast"<% end %> data-provide="typeahead" />
       </div>
 
       <input name="remote" type="hidden" value="true" />

@@ -27,16 +27,16 @@ class TagController < ApplicationController
     if params[:id][-1..-1] == "*" # wildcard tags
       @wildcard = true
       @tags = DrupalTag.where('name LIKE (?)', params[:id][0..-2] + '%')
-      nodes = DrupalNode.where(:status => 1, :type => node_type)
+      nodes = DrupalNode.where(status: 1, type: node_type)
                         .includes(:drupal_node_revision, :drupal_tag)
-                        .where('term_data.name LIKE (?)', params[:id][0..-2] + '%')
+                        .where('term_data.name LIKE (?) OR term_data.parent LIKE (?)', params[:id][0..-2] + '%', params[:id][0..-2] + '%')
                         .page(params[:page])
                         .order("node_revisions.timestamp DESC")
     else
       @tags = DrupalTag.find_all_by_name params[:id]
       nodes = DrupalNode.where(status: 1, type: node_type)
                         .includes(:drupal_node_revision, :drupal_tag)
-                        .where('term_data.name = ?', params[:id])
+                        .where('term_data.name = ? OR term_data.parent = ?', params[:id], params[:id])
                         .page(params[:page])
                         .order("node_revisions.timestamp DESC")
     end
@@ -82,11 +82,11 @@ class TagController < ApplicationController
     else
       flash[:notice] = I18n.t('tag_controller.barnstar_awarded', :url1 => "/wiki/barnstars#"+params[:star].split('-').each{|w| w.capitalize!}.join('+')+"+Barnstar", :star => params[:star], :url2 => "/profile/"+node.author.name, :awardee => node.author.name).html_safe
       # on success add comment
-      barnstar_info_link = '<a href="publiclab.org/wiki/barnstars">barnstar</a>'
+      barnstar_info_link = '<a href="//' + request.host.to_s + '/wiki/barnstars">barnstar</a>'
       node.add_comment({
           :subject => 'barnstar',
           :uid => current_user.uid,
-          :body => "#{current_user.username} awards a #{barnstar_info_link} to #{node.drupal_users.name} for their awesome contribution!"
+          :body => "@#{current_user.username} awards a #{barnstar_info_link} to #{node.drupal_users.name} for their awesome contribution!"
         })
     end
     redirect_to node.path + "?_=" + Time.now.to_i.to_s
@@ -95,8 +95,9 @@ class TagController < ApplicationController
   def create
     params[:name] ||= ""
     tagnames = params[:name].split(',')
-    @output = { :errors => [],
-      :saved => [],
+    @output = { 
+      errors: [],
+      saved: []
     }
     @tags = [] # not used except in tests for now
 
@@ -105,7 +106,7 @@ class TagController < ApplicationController
 
       # this should all be done in the model:
 
-      if DrupalTag.exists?(tagname,params[:nid])
+      if DrupalTag.exists?(tagname, params[:nid])
         @output[:errors] << I18n.t('tag_controller.tag_already_exists')
       else
         # "with:foo" coauthorship powertag: by author only
@@ -119,12 +120,12 @@ class TagController < ApplicationController
         elsif tagname[0..4] == "rsvp:" && current_user.username != tagname.split(':')[1]
           @output[:errors] << I18n.t('tag_controller.only_RSVP_for_yourself')
         else
-          saved,tag = node.add_tag(tagname.strip,current_user)
+          saved, tag = node.add_tag(tagname.strip, current_user)
           if saved
             @tags << tag
-            @output[:saved] << [tag.name,tag.id]
+            @output[:saved] << [tag.name, tag.id]
           else
-            @output[:errors] << I18n.t('tag_controller.error_tags')+tag.errors[:name].first
+            @output[:errors] << I18n.t('tag_controller.error_tags') + tag.errors[:name].first
           end
         end
       end
@@ -166,15 +167,15 @@ class TagController < ApplicationController
 
   def suggested
     if params[:id].length > 2
-      suggestions = []
+      @suggestions = []
       # filtering out tag spam by requiring tags attached to a published node
       DrupalTag.where('name LIKE ?', "%" + params[:id] + "%")
                .includes(:drupal_node)
                .where('node.status = 1')
                .limit(10).each do |tag|
-        suggestions << tag.name.downcase
+        @suggestions << tag.name.downcase
       end
-      render :json => suggestions.uniq
+      render :json => @suggestions.uniq
     else
       render :json => []
     end
@@ -234,6 +235,8 @@ class TagController < ApplicationController
     render :template => "tag/contributors-index"
   end
 
+  # let's not use session for tags storage; deprecate these unless they're being used 
+  # to remember and persist recently searched for tags:
   def add_tag
     unless session[:tags]
       session[:tags] = {}
