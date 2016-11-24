@@ -19,7 +19,7 @@ Some key features include:
 
 ## Contributing
 
-We welcome contributions, and are especially interested in welcoming [first time contributors](#first-time). Read more about [how to contribute](#developers) below!
+We welcome contributions, and are especially interested in welcoming [first time contributors](#first-time). Read more about [how to contribute](#developers) below! We especially welcome contributions from people from groups underrepresented in free and open source software!
 
 ### Code of Conduct
 
@@ -33,11 +33,10 @@ This is a quick installation for use with the cloud environment https://c9.io - 
 
 1. If you have a GitHub account, visit https://c9.io and log in with the GitHub button.
 2. Fork this repository to your own GitHub account, creating a `yourname/plots2` project.
-3. Name your project, then enter `yourname/plots2` in the "Clone from Git or Mercurial URL" field, and press **Create Workspace** 
+3. Name your project, then enter `yournameplots2` in the "Clone from Git or Mercurial URL" field, and press **Create Workspace** 
 4. In the command line prompt at the bottom of the page, type `. ./install_cloudnine.sh` and press enter.
-5. Enter your username when prompted, and run `rails s -b $IP -p $PORT` when it's done.
-6. You're done! Go to the URL shown!
-
+5. Enter your username when prompted, and let it set things up.
+6. Run `rails s -b $IP -p $PORT` when it's done, or `rake test` to run your tests!
 
 ====
 
@@ -52,7 +51,7 @@ Our production application runs on mysql, but for development, sqlite3 is suffic
 * Fedora/Red Hat/CentOS: `sudo yum install sqlite` -- you may need `sqlite-devel` as well.
 
 
-### Solr search engine
+### Solr search engine (optional)
 
 [Solr](https://lucene.apache.org/solr/) is a standalone search server. You put documents in it (called "indexing") via JSON, XML, CSV or binary over HTTP. You query it via HTTP GET and receive JSON, XML, CSV or binary results. Solr enables powerful matching capabilities including phrases, wildcards, joins, grouping and much more across any data type.
 We use the Solr search engine via the [sunspot gem](https://github.com/sunspot/sunspot) and using an adapter called [sunspot_rails](https://github.com/outoftime/sunspot_rails) to communicate to solr search server through our rails app.
@@ -67,7 +66,7 @@ And start up solr with:
 However, to ease installation, we've [made Java optional](https://github.com/publiclab/plots2/issues/832) for basic testing using `rake test`. So if you are just starting out you can skip this step.
 
 
-### Image libraries
+### Image libraries (optional)
 
 If you are just developing and don't plan to do work with image uploading, you may not need the following, but otherwise:
 
@@ -110,7 +109,7 @@ Once NPM is installed, you should be able to run:
 
 **WARNING:** Please refrain from using `sudo npm` as it's not only a bad practice, but may also put your security at a risk. For more on this, read https://pawelgrzybek.com/fix-priviliges-and-never-again-use-sudo-with-npm/
 
-### phantomjs for javascript tests
+### phantomjs for javascript tests (optional)
 
 We are using `jasmine-rails` gem for the optional javascript tests (run with `rake spec:javascript`) which require `phantomjs` for headless testing (i.e. on the commandline, not with a browser). Generally the **phantomjs gem** gets installed along with the `jasmine-rails` gem. If the package installation for the gem fails you can use [this script](https://github.com/codeship/scripts/blob/master/packages/phantomjs.sh) to install it.
 
@@ -125,7 +124,7 @@ Installation steps:
 
 1. In the console, download a copy of the source with `git clone https://github.com/publiclab/plots2.git`.
 2. Enter the new **plots2** directory with `cd plots2`.
-3. Install gems with `bundle install --without production` from the rails root folder, to install the gems you'll need, excluding those needed only in production. You may need to first run `bundle update` if you have older gems in your environment from previous Rails work. 
+3. Install gems with `bundle install --without production mysql` from the rails root folder, to install the gems you'll need, excluding those needed only in production. You may need to first run `bundle update` if you have older gems in your environment from previous Rails work. 
 4. Make a copy of `db/schema.rb.example` and place it at `db/schema.rb`.
 5. Make a copy of `config/database.yml.sqlite.example` and place it at `config/database.yml`
 6. Run `rake db:setup` to set up the database
@@ -187,6 +186,13 @@ Swagger-generated API documentation can be found at:
 
 https://publiclab.org/api/swagger_doc.json
 
+Per-model API endpoints are:
+
+* Profiles: https://publiclab.org/api/srch/profiles?srchString=foo
+* Questions: https://publiclab.org/api/srch/questions?srchString=foo
+* Tags: https://publiclab.org/api/srch/tags?srchString=foo
+* Notes: https://publiclab.org/api/srch/notes?srchString=foo
+
 ****
 
 ## Developers
@@ -204,6 +210,7 @@ Help improve Public Lab software!
 
 ## First time?
 
-New to open source/free software? We've listed some "good for first timers" bugs to fix here: https://github.com/publiclab/plots2/labels/first-timers-only
+New to open source/free software?, Here are a selection of issues we've made especially for first-timers. We're here to help, so just ask if one looks interesting : https://github.com/publiclab/plots2/projects/2
+
 
 We also have a slightly larger list of easy-ish but small and self contained issues: https://github.com/publiclab/plots2/labels/help-wanted

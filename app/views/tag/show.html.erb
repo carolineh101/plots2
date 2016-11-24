@@ -1,5 +1,27 @@
 <%= render :partial => "sidebar/related" %>
 <div class="col-md-9">
+
+  <% if @wiki %>
+    <div id="wiki-content">
+      <% if @wiki.main_image %>
+        <div class="row">
+          <div class="col-md-4">
+            <%= image_tag(@wiki.main_image.path, class: "img-responsive") %>
+          </div>
+          <div class="col-md-8">
+            <h2><%= link_to @wiki.latest.title, "/wiki/#{params[:id]}" %></h2>
+            <%= @wiki.latest.render_body.match(/<p>(.+)<\/p>/).to_a.try(:first).to_s.html_safe %>
+            <%= link_to("Read More", "/wiki/#{params[:id]}") if @wiki.latest.render_body.split('</p>').length > 2 %>
+          </div>
+        </div>
+      <% else %>
+        <h2><%= @wiki.latest.title %></h2>
+        <p><%= @wiki.latest.render_body.html_safe.match(/<p>(.+)<\/p>/).to_a.try(:first).to_s.html_safe %></p>
+        <p><%= link_to("Read More &raquo;", "/wiki/#{params[:id]}") if @wiki.latest.render_body.html_safe.match(/<p>(.+)<\/p>/).length > 1 %></p>
+      <% end %>
+    </div>  
+  <% end %>
+
   <% if @tags.first %>
   <div id="note-graph" style="height:100px;"></div>
 
@@ -24,7 +46,7 @@
           data: notes,
           hoverable: true,
  //         label: "Research Notes",
-          bars: { show: true, 
+          bars: { show: true,
                   lineWidth: 0,
                   fillColor: "#08f",
                   barWidth: 0.5
@@ -63,19 +85,20 @@
     <li<% if @node_type == "questions" %> class="active"<% end %>><a href="/questions/tag/<%= params[:id] %>"><i class="fa fa-question-circle"></i> <%= t('tag.show.questions') %></a></li>
     <li<% if @node_type == "wiki" %> class="active"<% end %>><a href="/wiki/tag/<%= params[:id] %>"><i class="fa fa-book"></i> <%= raw t('tag.show.wiki_pages') %></a></li>
     <li<% if @node_type == "maps" %> class="active"<% end %>><a href="/maps/tag/<%= params[:id] %>"><i class="fa fa-map-marker"></i> <%= t('tag.show.maps') %></a></li>
+     <li<% if @node_type == "contributors" %> class="active"<% end %>><a href="/contributors/<%= params[:id] %>"><i class="fa fa-user"></i> <%= raw t('tag.show.contributors') %></a></li>
   </ul>
 
   <br />
 
   <div class="tab-content">
 
-    <% if @node_type == "note" %> 
+    <% if @node_type == "note" %>
       <div class="tab-pane active" id="notes">
         <% if @notes.nil? || @notes.length == 0 %>
           <p><%= raw t('tag.show.no_results_found', :tag => params[:id]) %>:</p>
-   
+
           <%= render :partial => "searches/search" %>
-   
+
           <p><%= raw t('tag.show.try_advanced_search', :url1 => params[:id]) %></p>
         <% else %>
           <%= render :partial => "notes/notes" %>
@@ -83,19 +106,19 @@
       </div>
     <% end %>
 
-    <% if @node_type == "questions" %> 
+    <% if @node_type == "questions" %>
       <div class="tab-pane active" id="questions">
         <%= render :partial => "questions/questions" %>
       </div>
     <% end %>
 
-    <% if @node_type == "wiki" %> 
+    <% if @node_type == "wiki" %>
       <div class="tab-pane active" id="wikis">
         <%= render :partial => "wiki/wikis" %>
       </div>
     <% end %>
 
-    <% if @node_type == "maps" %> 
+    <% if @node_type == "maps" %>
       <div class="tab-pane active" id="wikis">
         <%= render :partial => "map/maps" %>
       </div>
