@@ -2,17 +2,10 @@
 <div id="notes">
     <div class="row">
     <% notes.each_with_index do |node,i| %>
-<<<<<<< HEAD
-      <div class="<% if @widget %>col-xs-3 col-sm-3 <% end %>col-md-3 clearfix dashboard activity note note-nid-<%= node.id %><% if node.status == 4 %> moderated<% end %>" style="overflow:hidden; text-align:center">
-
-        <% if node.main_image %>
-          <a class="img" <% if @widget %>target="_blank"<% end %> href="<%= node.path %>"><img src="<%= node.main_image.path(:default) %>" style="width:100%; height: 150px;" /></a>
-=======
       <div class="<% if @widget %>col-xs-3 col-sm-3 <% end %>col-md-3 clearfix note note-nid-<%= node.id %><% if node.status == 4 %> moderated<% end %>" style="overflow:hidden; text-align:center">
 
         <% if node.main_image %>
           <a class="img" <% if @widget %>target="_blank"<% end %> href="<%= node.path %>"><img src="<%= node.main_image.path(:default) %>" style="width:100%;" /></a>
->>>>>>> a54e2a41d916c183b57696d9a62fd44406a3f62b
         <% end %>
 
         <% if node.status == 4 %>
@@ -44,14 +37,6 @@
 
         <div class="content">
           <% if @compact.nil? %>
-<<<<<<< HEAD
-            <p><small><a <% if @widget %>target="_blank"<% end %> href="<%= node.path %>#Activity+grid"><i class="fa fa-flask" style="color:green"></i> <%= DrupalNode.activities(node.title).count %> activities</a></small></p>
-            <!-- <p><i class="fa fa-users" style="color:blue"></i> contributors</p> -->
-            <p><small><a <% if @widget %>target="_blank"<% end %> href="<%= node.path %>#Upgrade+grid"><i class="fa fa-level-up" style="color:red"></i> <%= DrupalNode.upgrades(node.title).count %> upgrades</a></small></p>
-            <p>
-              <% if logged_in_as(['admin','moderator']) %><a class="btn btn-default btn-xs" href="/moderate/spam/<%= node.id %>"><i class="fa fa-ban"></i> <%= t('notes._notes.spam') %></a><% end %>
-              <a class="btn btn-default btn-xs" href="<%= node.path %>"><%= t('notes._notes.explore') %></a>
-=======
             <% if params[:action] == "tools" %>
               <p><small>
                 <a <% if @widget %>target="_blank"<% end %> href="<%= node.path %>#Activity+grid"><i class="fa fa-flask" style="color:#3da56a;"></i> <%= DrupalNode.activities(node.power_tag('activities')).count %> activities</a> &nbsp;
@@ -64,7 +49,6 @@
             <p>
               <% if logged_in_as(['admin','moderator']) %><a class="btn btn-default btn-xs" href="/moderate/spam/<%= node.id %>"><i class="fa fa-ban"></i> <%= t('notes._notes.spam') %></a><% end %>
               <a class="btn btn-default" href="<%= node.path %>"><%= t('notes._notes.read_more') %></a>
->>>>>>> a54e2a41d916c183b57696d9a62fd44406a3f62b
             </p>
           <% end %>
           <% if params[:mod] %>

@@ -763,13 +763,10 @@ class DrupalNode < ActiveRecord::Base
                           .group('node.nid')
   end
 
-<<<<<<< HEAD
-=======
   def body_preview
     self.try(:latest).body_preview
   end
 
->>>>>>> a54e2a41d916c183b57696d9a62fd44406a3f62b
   def self.activities(tagname)
     DrupalNode.where(status: 1, type: 'note')
               .includes(:drupal_node_revision, :drupal_tag)
